@@ -11,6 +11,13 @@ console = Console()
 
 
 @app.command()
+def version() -> None:
+    from physioproof import __version__
+
+    console.print(f"physioproof {__version__}")
+
+
+@app.command()
 def report(demo: bool = typer.Option(False, "--demo", help="Print sample evidence report")) -> None:
     if not demo:
         console.print("Use --demo for now, or pass a video path in a future release.")
