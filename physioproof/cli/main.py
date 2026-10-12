@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -18,11 +20,28 @@ def version() -> None:
 
 
 @app.command()
-def report(demo: bool = typer.Option(False, "--demo", help="Print sample evidence report")) -> None:
+def report(
+    demo: bool = typer.Option(False, "--demo", help="Print sample evidence report"),
+    json_out: bool = typer.Option(False, "--json", help="Print report as JSON"),
+) -> None:
     if not demo:
         console.print("Use --demo for now, or pass a video path in a future release.")
         raise typer.Exit(code=0)
     scores = demo_scores()
+    if json_out:
+        console.print(
+            json.dumps(
+                {
+                    "heart_signal": scores.heart_signal,
+                    "respiration": scores.respiration,
+                    "temporal_coherence": scores.temporal_coherence,
+                    "spatial_coherence": scores.spatial_coherence,
+                    "overall_label": scores.overall_label,
+                },
+                indent=2,
+            ),
+        )
+        return
     body = (
         f"Heart signal:        {scores.heart_signal:.0f}%\n"
         f"Respiration:           {scores.respiration:.0f}%\n"
