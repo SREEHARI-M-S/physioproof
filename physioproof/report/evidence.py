@@ -33,3 +33,8 @@ def demo_scores() -> EvidenceScores:
         temporal_coherence=89.0,
         spatial_coherence=38.0,
     )
+
+
+def passes_authenticity_gate(scores: EvidenceScores, min_spatial: float = 50.0) -> bool:
+    """Return True when demo scores are not flagged as likely manipulated."""
+    return scores.spatial_coherence >= min_spatial and scores.overall_label != "LIKELY MANIPULATED"

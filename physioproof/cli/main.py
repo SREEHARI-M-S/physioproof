@@ -6,7 +6,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from physioproof.report.evidence import demo_scores
+from physioproof.report.evidence import demo_scores, passes_authenticity_gate
 from physioproof.rppg.extract import estimate_dominant_bpm, synthetic_pulse_signal
 
 app = typer.Typer(no_args_is_help=True, help="PhysioProof — physiological video evidence")
@@ -24,6 +24,11 @@ def version() -> None:
 def report(
     demo: bool = typer.Option(False, "--demo", help="Print sample evidence report"),
     json_out: bool = typer.Option(False, "--json", help="Print report as JSON"),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Exit 1 when demo scores fail authenticity gate (CI-friendly)",
+    ),
 ) -> None:
     if not demo:
         console.print("Use --demo for now, or pass a video path in a future release.")
@@ -42,6 +47,8 @@ def report(
                 indent=2,
             ),
         )
+        if strict and not passes_authenticity_gate(scores):
+            raise typer.Exit(code=1)
         return
     body = (
         f"Heart signal:        {scores.heart_signal:.0f}%\n"
@@ -51,6 +58,8 @@ def report(
         f"Overall: {scores.overall_label}"
     )
     console.print(Panel(body, title="VIDEO AUTHENTICITY REPORT"))
+    if strict and not passes_authenticity_gate(scores):
+        raise typer.Exit(code=1)
 
 
 @app.command()
