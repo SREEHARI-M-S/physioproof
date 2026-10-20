@@ -93,6 +93,12 @@ def signal(
     fps: float = typer.Option(30.0, help="Frames per second for demo signal"),
     seconds: float = typer.Option(10.0, help="Demo trace length in seconds"),
     json_out: bool = typer.Option(False, "--json", help="Print analysis as JSON"),
+    expect_bpm: float | None = typer.Option(
+        None,
+        "--expect-bpm",
+        help="Fail when estimated BPM differs by more than tolerance",
+    ),
+    tolerance: float = typer.Option(5.0, help="Allowed BPM delta when using --expect-bpm"),
 ) -> None:
     """Estimate heart rate from a 1-D physiological trace (demo uses synthetic rPPG)."""
     if not demo:
@@ -101,11 +107,17 @@ def signal(
     length = max(8, int(fps * seconds))
     trace = synthetic_pulse_signal(length, fps=fps, bpm=72.0)
     bpm = estimate_dominant_bpm(trace, fps=fps)
-    payload = {"fps": fps, "samples": length, "estimated_bpm": round(bpm, 1)}
+    payload: dict[str, object] = {"fps": fps, "samples": length, "estimated_bpm": round(bpm, 1)}
+    if expect_bpm is not None:
+        delta = abs(float(payload["estimated_bpm"]) - expect_bpm)
+        payload["expect_bpm"] = expect_bpm
+        payload["bpm_within_tolerance"] = delta <= tolerance
     if json_out:
         console.print(json.dumps(payload, indent=2))
-        return
-    console.print(Panel(f"Estimated BPM: {payload['estimated_bpm']}", title="rPPG signal (demo)"))
+    else:
+        console.print(Panel(f"Estimated BPM: {payload['estimated_bpm']}", title="rPPG signal (demo)"))
+    if expect_bpm is not None and not payload.get("bpm_within_tolerance"):
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
