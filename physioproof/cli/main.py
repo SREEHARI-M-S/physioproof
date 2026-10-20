@@ -63,6 +63,31 @@ def report(
 
 
 @app.command()
+def check(
+    demo: bool = typer.Option(False, "--demo", help="Run demo authenticity gate"),
+    json_out: bool = typer.Option(False, "--json", help="Print gate result as JSON"),
+) -> None:
+    """Exit 0 when demo scores pass the authenticity gate (for CI)."""
+    if not demo:
+        console.print("Use --demo for now.")
+        raise typer.Exit(code=0)
+    scores = demo_scores()
+    passed = passes_authenticity_gate(scores)
+    payload = {
+        "passed": passed,
+        "overall_label": scores.overall_label,
+        "spatial_coherence": scores.spatial_coherence,
+    }
+    if json_out:
+        console.print(json.dumps(payload, indent=2))
+    elif passed:
+        console.print("[green]PASS[/green] authenticity gate")
+    else:
+        console.print("[red]FAIL[/red] authenticity gate")
+    raise typer.Exit(code=0 if passed else 1)
+
+
+@app.command()
 def signal(
     demo: bool = typer.Option(False, "--demo", help="Analyze synthetic rPPG demo trace"),
     fps: float = typer.Option(30.0, help="Frames per second for demo signal"),
