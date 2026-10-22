@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -8,6 +9,7 @@ from rich.panel import Panel
 
 from physioproof.report.evidence import demo_scores, passes_authenticity_gate
 from physioproof.rppg.extract import estimate_dominant_bpm, synthetic_pulse_signal
+from physioproof.rppg.io import load_trace_file
 
 app = typer.Typer(no_args_is_help=True, help="PhysioProof — physiological video evidence")
 console = Console()
@@ -90,6 +92,14 @@ def check(
 @app.command()
 def signal(
     demo: bool = typer.Option(False, "--demo", help="Analyze synthetic rPPG demo trace"),
+    trace: Path | None = typer.Option(
+        None,
+        "--trace",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="CSV or JSON file with at least 8 samples",
+    ),
     fps: float = typer.Option(30.0, help="Frames per second for demo signal"),
     seconds: float = typer.Option(10.0, help="Demo trace length in seconds"),
     json_out: bool = typer.Option(False, "--json", help="Print analysis as JSON"),
@@ -101,13 +111,28 @@ def signal(
     tolerance: float = typer.Option(5.0, help="Allowed BPM delta when using --expect-bpm"),
 ) -> None:
     """Estimate heart rate from a 1-D physiological trace (demo uses synthetic rPPG)."""
-    if not demo:
-        console.print("Use --demo for now, or pass a trace file in a future release.")
+    trace_path = trace
+    if trace_path is not None:
+        try:
+            signal_samples = load_trace_file(trace_path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        length = int(signal_samples.size)
+        source = str(trace_path)
+    elif demo:
+        length = max(8, int(fps * seconds))
+        signal_samples = synthetic_pulse_signal(length, fps=fps, bpm=72.0)
+        source = "demo"
+    else:
+        console.print("Use --demo or pass --trace <file.csv|.json>.")
         raise typer.Exit(code=0)
-    length = max(8, int(fps * seconds))
-    trace = synthetic_pulse_signal(length, fps=fps, bpm=72.0)
-    bpm = estimate_dominant_bpm(trace, fps=fps)
-    payload: dict[str, object] = {"fps": fps, "samples": length, "estimated_bpm": round(bpm, 1)}
+    bpm = estimate_dominant_bpm(signal_samples, fps=fps)
+    payload: dict[str, object] = {
+        "fps": fps,
+        "samples": length,
+        "source": source,
+        "estimated_bpm": round(bpm, 1),
+    }
     if expect_bpm is not None:
         delta = abs(float(payload["estimated_bpm"]) - expect_bpm)
         payload["expect_bpm"] = expect_bpm
