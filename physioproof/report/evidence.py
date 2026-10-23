@@ -38,3 +38,15 @@ def demo_scores() -> EvidenceScores:
 def passes_authenticity_gate(scores: EvidenceScores, min_spatial: float = 50.0) -> bool:
     """Return True when demo scores are not flagged as likely manipulated."""
     return scores.spatial_coherence >= min_spatial and scores.overall_label != "LIKELY MANIPULATED"
+
+
+def authenticity_issues(scores: EvidenceScores, min_spatial: float = 50.0) -> list[str]:
+    """Human-readable reasons the authenticity gate would fail."""
+    issues: list[str] = []
+    if scores.spatial_coherence < min_spatial:
+        issues.append(
+            f"spatial_coherence {scores.spatial_coherence:.0f} is below minimum {min_spatial:.0f}",
+        )
+    if scores.overall_label == "LIKELY MANIPULATED":
+        issues.append(f"overall_label is {scores.overall_label}")
+    return issues

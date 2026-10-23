@@ -7,7 +7,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from physioproof.report.evidence import demo_scores, passes_authenticity_gate
+from physioproof.report.evidence import authenticity_issues, demo_scores, passes_authenticity_gate
 from physioproof.rppg.extract import estimate_dominant_bpm, synthetic_pulse_signal
 from physioproof.rppg.io import load_trace_file
 
@@ -62,6 +62,34 @@ def report(
     console.print(Panel(body, title="VIDEO AUTHENTICITY REPORT"))
     if strict and not passes_authenticity_gate(scores):
         raise typer.Exit(code=1)
+
+
+@app.command()
+def diagnose(
+    demo: bool = typer.Option(False, "--demo", help="Explain demo authenticity gate failures"),
+    json_out: bool = typer.Option(False, "--json", help="Print diagnosis as JSON"),
+    min_spatial: float = typer.Option(50.0, help="Minimum spatial coherence to pass gate"),
+) -> None:
+    """List why demo scores fail the authenticity gate (empty when gate passes)."""
+    if not demo:
+        console.print("Use --demo for now.")
+        raise typer.Exit(code=0)
+    scores = demo_scores()
+    passed = passes_authenticity_gate(scores, min_spatial=min_spatial)
+    issues = authenticity_issues(scores, min_spatial=min_spatial)
+    payload = {
+        "passed": passed,
+        "overall_label": scores.overall_label,
+        "issues": issues,
+    }
+    if json_out:
+        console.print(json.dumps(payload, indent=2))
+    elif issues:
+        for item in issues:
+            console.print(f"[yellow]•[/yellow] {item}")
+    else:
+        console.print("[green]No gate issues[/green]")
+    raise typer.Exit(code=0 if passed else 1)
 
 
 @app.command()
