@@ -26,6 +26,12 @@ def version() -> None:
 def report(
     demo: bool = typer.Option(False, "--demo", help="Print sample evidence report"),
     json_out: bool = typer.Option(False, "--json", help="Print report as JSON"),
+    output: Path | None = typer.Option(
+        None,
+        "-o",
+        "--output",
+        help="Write JSON report to this file (implies structured output)",
+    ),
     strict: bool = typer.Option(
         False,
         "--strict",
@@ -36,30 +42,28 @@ def report(
         console.print("Use --demo for now, or pass a video path in a future release.")
         raise typer.Exit(code=0)
     scores = demo_scores()
+    report_payload = {
+        "heart_signal": scores.heart_signal,
+        "respiration": scores.respiration,
+        "temporal_coherence": scores.temporal_coherence,
+        "spatial_coherence": scores.spatial_coherence,
+        "overall_label": scores.overall_label,
+    }
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(report_payload, indent=2), encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {output}")
     if json_out:
-        console.print(
-            json.dumps(
-                {
-                    "heart_signal": scores.heart_signal,
-                    "respiration": scores.respiration,
-                    "temporal_coherence": scores.temporal_coherence,
-                    "spatial_coherence": scores.spatial_coherence,
-                    "overall_label": scores.overall_label,
-                },
-                indent=2,
-            ),
+        console.print(json.dumps(report_payload, indent=2))
+    elif output is None:
+        body = (
+            f"Heart signal:        {scores.heart_signal:.0f}%\n"
+            f"Respiration:           {scores.respiration:.0f}%\n"
+            f"Temporal coherence:    {scores.temporal_coherence:.0f}%\n"
+            f"Spatial coherence:     {scores.spatial_coherence:.0f}%\n\n"
+            f"Overall: {scores.overall_label}"
         )
-        if strict and not passes_authenticity_gate(scores):
-            raise typer.Exit(code=1)
-        return
-    body = (
-        f"Heart signal:        {scores.heart_signal:.0f}%\n"
-        f"Respiration:           {scores.respiration:.0f}%\n"
-        f"Temporal coherence:    {scores.temporal_coherence:.0f}%\n"
-        f"Spatial coherence:     {scores.spatial_coherence:.0f}%\n\n"
-        f"Overall: {scores.overall_label}"
-    )
-    console.print(Panel(body, title="VIDEO AUTHENTICITY REPORT"))
+        console.print(Panel(body, title="VIDEO AUTHENTICITY REPORT"))
     if strict and not passes_authenticity_gate(scores):
         raise typer.Exit(code=1)
 
@@ -103,11 +107,13 @@ def check(
         raise typer.Exit(code=0)
     scores = demo_scores()
     passed = passes_authenticity_gate(scores)
-    payload = {
+    payload: dict[str, object] = {
         "passed": passed,
         "overall_label": scores.overall_label,
         "spatial_coherence": scores.spatial_coherence,
     }
+    if not passed:
+        payload["issues"] = authenticity_issues(scores)
     if json_out:
         console.print(json.dumps(payload, indent=2))
     elif passed:
