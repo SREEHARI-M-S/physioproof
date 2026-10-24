@@ -72,6 +72,7 @@ def report(
 def diagnose(
     demo: bool = typer.Option(False, "--demo", help="Explain demo authenticity gate failures"),
     json_out: bool = typer.Option(False, "--json", help="Print diagnosis as JSON"),
+    output: Path | None = typer.Option(None, "-o", "--output", help="Write diagnosis JSON to file"),
     min_spatial: float = typer.Option(50.0, help="Minimum spatial coherence to pass gate"),
 ) -> None:
     """List why demo scores fail the authenticity gate (empty when gate passes)."""
@@ -86,13 +87,18 @@ def diagnose(
         "overall_label": scores.overall_label,
         "issues": issues,
     }
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {output}")
     if json_out:
         console.print(json.dumps(payload, indent=2))
-    elif issues:
-        for item in issues:
-            console.print(f"[yellow]•[/yellow] {item}")
-    else:
-        console.print("[green]No gate issues[/green]")
+    elif output is None:
+        if issues:
+            for item in issues:
+                console.print(f"[yellow]•[/yellow] {item}")
+        else:
+            console.print("[green]No gate issues[/green]")
     raise typer.Exit(code=0 if passed else 1)
 
 
@@ -143,6 +149,7 @@ def signal(
         help="Fail when estimated BPM differs by more than tolerance",
     ),
     tolerance: float = typer.Option(5.0, help="Allowed BPM delta when using --expect-bpm"),
+    output: Path | None = typer.Option(None, "-o", "--output", help="Write analysis JSON to file"),
 ) -> None:
     """Estimate heart rate from a 1-D physiological trace (demo uses synthetic rPPG)."""
     trace_path = trace
@@ -171,9 +178,13 @@ def signal(
         delta = abs(float(payload["estimated_bpm"]) - expect_bpm)
         payload["expect_bpm"] = expect_bpm
         payload["bpm_within_tolerance"] = delta <= tolerance
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {output}")
     if json_out:
         console.print(json.dumps(payload, indent=2))
-    else:
+    elif output is None:
         console.print(Panel(f"Estimated BPM: {payload['estimated_bpm']}", title="rPPG signal (demo)"))
     if expect_bpm is not None and not payload.get("bpm_within_tolerance"):
         raise typer.Exit(code=1)
