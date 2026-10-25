@@ -106,6 +106,7 @@ def diagnose(
 def check(
     demo: bool = typer.Option(False, "--demo", help="Run demo authenticity gate"),
     json_out: bool = typer.Option(False, "--json", help="Print gate result as JSON"),
+    output: Path | None = typer.Option(None, "-o", "--output", help="Write gate result JSON to file"),
 ) -> None:
     """Exit 0 when demo scores pass the authenticity gate (for CI)."""
     if not demo:
@@ -120,12 +121,17 @@ def check(
     }
     if not passed:
         payload["issues"] = authenticity_issues(scores)
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {output}")
     if json_out:
         console.print(json.dumps(payload, indent=2))
-    elif passed:
-        console.print("[green]PASS[/green] authenticity gate")
-    else:
-        console.print("[red]FAIL[/red] authenticity gate")
+    elif output is None:
+        if passed:
+            console.print("[green]PASS[/green] authenticity gate")
+        else:
+            console.print("[red]FAIL[/red] authenticity gate")
     raise typer.Exit(code=0 if passed else 1)
 
 

@@ -22,3 +22,12 @@ def test_check_json_includes_issues_on_failure() -> None:
     assert result.exit_code == 1
     payload = json.loads(result.stdout)
     assert payload["issues"]
+
+
+def test_check_writes_output_file(tmp_path: Path) -> None:
+    out = tmp_path / "gate.json"
+    result = runner.invoke(app, ["check", "--demo", "-o", str(out)])
+    assert result.exit_code == 1
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["passed"] is False
+    assert payload["issues"]
