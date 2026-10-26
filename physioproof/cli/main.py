@@ -42,13 +42,17 @@ def report(
         console.print("Use --demo for now, or pass a video path in a future release.")
         raise typer.Exit(code=0)
     scores = demo_scores()
-    report_payload = {
+    gate_passed = passes_authenticity_gate(scores)
+    report_payload: dict[str, object] = {
         "heart_signal": scores.heart_signal,
         "respiration": scores.respiration,
         "temporal_coherence": scores.temporal_coherence,
         "spatial_coherence": scores.spatial_coherence,
         "overall_label": scores.overall_label,
+        "gate_passed": gate_passed,
     }
+    if not gate_passed:
+        report_payload["gate_issues"] = authenticity_issues(scores)
     if output is not None:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(report_payload, indent=2), encoding="utf-8")
@@ -64,7 +68,7 @@ def report(
             f"Overall: {scores.overall_label}"
         )
         console.print(Panel(body, title="VIDEO AUTHENTICITY REPORT"))
-    if strict and not passes_authenticity_gate(scores):
+    if strict and not gate_passed:
         raise typer.Exit(code=1)
 
 
