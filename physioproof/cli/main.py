@@ -23,6 +23,37 @@ def version() -> None:
 
 
 @app.command()
+def scores(
+    demo: bool = typer.Option(False, "--demo", help="Print demo evidence scores"),
+    json_out: bool = typer.Option(False, "--json", help="Print scores as JSON"),
+) -> None:
+    """Show raw authenticity score dimensions (demo data)."""
+    if not demo:
+        console.print("Use --demo for now.")
+        raise typer.Exit(code=0)
+    evidence = demo_scores()
+    payload = {
+        "heart_signal": evidence.heart_signal,
+        "respiration": evidence.respiration,
+        "temporal_coherence": evidence.temporal_coherence,
+        "spatial_coherence": evidence.spatial_coherence,
+        "overall_label": evidence.overall_label,
+        "gate_passed": passes_authenticity_gate(evidence),
+    }
+    if json_out:
+        console.print(json.dumps(payload, indent=2))
+        return
+    console.print(
+        Panel(
+            f"Heart: {evidence.heart_signal:.0f}%  Resp: {evidence.respiration:.0f}%\n"
+            f"Temporal: {evidence.temporal_coherence:.0f}%  Spatial: {evidence.spatial_coherence:.0f}%\n"
+            f"Label: {evidence.overall_label}",
+            title="Evidence scores (demo)",
+        ),
+    )
+
+
+@app.command()
 def report(
     demo: bool = typer.Option(False, "--demo", help="Print sample evidence report"),
     json_out: bool = typer.Option(False, "--json", help="Print report as JSON"),
