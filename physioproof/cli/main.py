@@ -26,6 +26,7 @@ def version() -> None:
 def scores(
     demo: bool = typer.Option(False, "--demo", help="Print demo evidence scores"),
     json_out: bool = typer.Option(False, "--json", help="Print scores as JSON"),
+    output: Path | None = typer.Option(None, "-o", "--output", help="Write scores JSON to file"),
 ) -> None:
     """Show raw authenticity score dimensions (demo data)."""
     if not demo:
@@ -40,8 +41,14 @@ def scores(
         "overall_label": evidence.overall_label,
         "gate_passed": passes_authenticity_gate(evidence),
     }
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        console.print(f"[green]Wrote[/green] {output}")
     if json_out:
         console.print(json.dumps(payload, indent=2))
+        return
+    if output is not None:
         return
     console.print(
         Panel(
